@@ -701,6 +701,9 @@
   var autoScrollActive = false;
   var autoScrollAnimId = null;
   var autoScrollLastTime = 0;
+  var resumeTimeoutId = null;
+  var resumeDelay = 5000; // 5 seconds
+  var lastAutoTargetY = null;
 
   function openEnvelope() {
     var wrap = document.getElementById('envWrap');
@@ -712,16 +715,25 @@
       var site = document.getElementById('main-site');
       site.classList.add('visible');
       checkReveal();
-      // start a slow auto-scroll to the next section (user can override by interacting)
-      setTimeout(function() { startAutoScrollTo('#save-date'); }, 400);
+      // start a slow auto-scroll to the bottom of the page (user can override)
+      setTimeout(function() { startAutoScrollTo('bottom'); }, 400);
     }, 1200);
   }
 
   // Start auto-scroll toward an element selector
   function startAutoScrollTo(selector) {
-    var targetEl = document.querySelector(selector);
-    if (!targetEl) return;
-    var targetY = targetEl.getBoundingClientRect().top + window.scrollY;
+    var targetY;
+    if (!selector || selector === 'bottom' || selector === 'last') {
+      // bottom of the document
+      var doc = document.documentElement;
+      var scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight);
+      targetY = scrollHeight - window.innerHeight;
+    } else {
+      var targetEl = document.querySelector(selector);
+      if (!targetEl) return;
+      targetY = targetEl.getBoundingClientRect().top + window.scrollY;
+    }
+    lastAutoTargetY = targetY;
     startAutoScroll(targetY);
   }
 
@@ -731,7 +743,7 @@
     cancelAutoScroll();
     autoScrollActive = true;
     autoScrollLastTime = performance.now();
-    var speedPxPerSec = 100; // increased slightly for faster auto-scroll
+    var speedPxPerSec = 220; // increased more for faster auto-scroll (readable)
 
     function step(now) {
       if (!autoScrollActive) return;
@@ -746,6 +758,8 @@
       if ((dir === 1 && nextY >= targetY) || (dir === -1 && nextY <= targetY)) {
         window.scrollTo({ top: targetY, behavior: 'auto' });
         cancelAutoScroll();
+        // clear any pending resume since we've reached target
+        if (resumeTimeoutId) { clearTimeout(resumeTimeoutId); resumeTimeoutId = null; }
         return;
       } else {
         window.scrollTo({ top: nextY, behavior: 'auto' });
@@ -764,7 +778,25 @@
 
   // If the user interacts (wheel, touch, mouse, key), cancel auto-scroll to allow manual control
   ['wheel', 'touchstart', 'touchmove', 'keydown', 'mousedown'].forEach(function(evt) {
-    window.addEventListener(evt, function() { if (autoScrollActive) cancelAutoScroll(); }, { passive: true });
+    window.addEventListener(evt, function() {
+      if (autoScrollActive) cancelAutoScroll();
+      // if user interacts, delay/resume auto-scroll after inactivity
+      if (resumeTimeoutId) clearTimeout(resumeTimeoutId);
+      // only resume to last target if there is one
+      resumeTimeoutId = setTimeout(function() {
+        // if already near target, don't restart
+        var target = lastAutoTargetY;
+        if (typeof target !== 'number') {
+          // default to bottom
+          var doc = document.documentElement;
+          var scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight);
+          target = scrollHeight - window.innerHeight;
+        }
+        if (Math.abs(window.scrollY - target) > 10) {
+          startAutoScroll(target);
+        }
+      }, resumeDelay);
+    }, { passive: true });
   });
 
   /* ── SCROLL REVEAL ── */
