@@ -185,7 +185,8 @@
   /* ─── HERO ─── */
   #hero {
     min-height: 100vh;
-    background: linear-gradient(180deg, #2e1f15 0%, #4a3526 40%, #faf6f0 100%);
+    /* reduced white area at the bottom (start of ivory moved up) */
+    background: linear-gradient(180deg, #2e1f15 0%, #4a3526 55%, #faf6f0 90%);
     position: relative; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     overflow: hidden; text-align: center;
@@ -225,7 +226,9 @@
   .hero-divider-line { flex: 1; height: 1px; background: var(--gold); opacity: 0.4; }
   .hero-divider-diamond { width: 8px; height: 8px; background: var(--gold2); transform: rotate(45deg); }
   .hero-date { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; color: var(--gold2); letter-spacing: 0.12em; font-weight: 300; }
-  .hero-location { font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-top: 8px; }
+  /* Make date and location darker and slightly bolder for readability on theme */
+  .hero-date { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; color: var(--text); letter-spacing: 0.12em; font-weight: 500; }
+  .hero-location { font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text); font-weight: 500; margin-top: 8px; }
 
   .scroll-indicator {
     position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
@@ -693,8 +696,11 @@
 </main>
 
 <script>
-  /* ── ENVELOPE OPEN ── */
+  /* ── ENVELOPE OPEN + AUTO-SCROLL ── */
   var rsvpSelection = '';
+  var autoScrollActive = false;
+  var autoScrollAnimId = null;
+  var autoScrollLastTime = 0;
 
   function openEnvelope() {
     var wrap = document.getElementById('envWrap');
@@ -706,8 +712,60 @@
       var site = document.getElementById('main-site');
       site.classList.add('visible');
       checkReveal();
+      // start a slow auto-scroll to the next section (user can override by interacting)
+      setTimeout(function() { startAutoScrollTo('#save-date'); }, 400);
     }, 1200);
   }
+
+  // Start auto-scroll toward an element selector
+  function startAutoScrollTo(selector) {
+    var targetEl = document.querySelector(selector);
+    if (!targetEl) return;
+    var targetY = targetEl.getBoundingClientRect().top + window.scrollY;
+    startAutoScroll(targetY);
+  }
+
+  // Smooth, slow auto-scroll implemented with requestAnimationFrame.
+  // Stops when the target is reached or when the user interacts.
+  function startAutoScroll(targetY) {
+    cancelAutoScroll();
+    autoScrollActive = true;
+    autoScrollLastTime = performance.now();
+    var speedPxPerSec = 100; // increased slightly for faster auto-scroll
+
+    function step(now) {
+      if (!autoScrollActive) return;
+      var elapsed = now - autoScrollLastTime;
+      autoScrollLastTime = now;
+      var delta = (speedPxPerSec * elapsed) / 1000;
+      var currentY = window.scrollY;
+      var dir = targetY > currentY ? 1 : -1;
+      var nextY = currentY + dir * delta;
+
+      // clamp and finish
+      if ((dir === 1 && nextY >= targetY) || (dir === -1 && nextY <= targetY)) {
+        window.scrollTo({ top: targetY, behavior: 'auto' });
+        cancelAutoScroll();
+        return;
+      } else {
+        window.scrollTo({ top: nextY, behavior: 'auto' });
+      }
+
+      autoScrollAnimId = requestAnimationFrame(step);
+    }
+
+    autoScrollAnimId = requestAnimationFrame(step);
+  }
+
+  function cancelAutoScroll() {
+    if (autoScrollAnimId) { cancelAnimationFrame(autoScrollAnimId); autoScrollAnimId = null; }
+    autoScrollActive = false;
+  }
+
+  // If the user interacts (wheel, touch, mouse, key), cancel auto-scroll to allow manual control
+  ['wheel', 'touchstart', 'touchmove', 'keydown', 'mousedown'].forEach(function(evt) {
+    window.addEventListener(evt, function() { if (autoScrollActive) cancelAutoScroll(); }, { passive: true });
+  });
 
   /* ── SCROLL REVEAL ── */
   function checkReveal() {
@@ -748,17 +806,9 @@
   updateCountdown();
   setInterval(updateCountdown, 1000);
 
-  /* ── RSVP ── */
-  function selectRsvp(el, val) {
-    rsvpSelection = val;
-    document.querySelectorAll('.rsvp-option').forEach(function(o){ o.classList.remove('selected'); });
-    el.classList.add('selected');
-  }
 
-  function submitRsvp() {
-    document.getElementById('rsvpForm').style.display = 'none';
-    document.getElementById('rsvpSuccess').style.display = 'block';
-  }
+
+ 
 </script>
 </body>
 </html>
