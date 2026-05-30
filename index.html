@@ -809,7 +809,8 @@
     autoScrollActive = true;
     autoScrollLastTime = performance.now();
     // make touch devices a bit faster so perceived speed matches desktop
-    var speedPxPerSec = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ? 280 : 220;
+    // reduced slightly to slow the auto-scroll for a gentler pace
+    var speedPxPerSec = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ? 240 : 160;
     // temporarily disable CSS smooth scrolling to avoid conflicts
     var prevScrollBehavior = document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior = 'auto';
