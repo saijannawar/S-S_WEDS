@@ -331,7 +331,7 @@
   #gallery .section-label { color: var(--gold2); }
   #gallery .section-title { color: var(--white); }
   #gallery .section-sub { color: rgba(255,255,255,0.5); }
-  .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 50px; }
+  .gallery-grid { display: flex; justify-content: center; gap: 3px; margin-top: 50px; }
   .gallery-cell {
     aspect-ratio: 1;
     background: rgba(255,255,255,0.05);
@@ -346,6 +346,57 @@
   .gallery-cell:hover { background: rgba(180,140,90,0.08); }
   .gallery-cell img { width: 100%; height: 100%; object-fit: cover; display: none; }
   .gallery-cell .cell-icon { font-size: 1.6rem; }
+
+  /* New 5-image layout: one prominent center image, four corner images behind it */
+  .gallery-layout {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    height: 520px;
+    margin: 28px auto 0 auto;
+  }
+  .gallery-layout img {
+    position: absolute;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.28);
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    will-change: transform;
+  }
+  /* Make images square using aspect-ratio for consistent sizing */
+  .gallery-layout img.center {
+    width: 46%;
+    aspect-ratio: 1 / 1;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    z-index: 30;
+    border-radius: 14px;
+  }
+  .gallery-layout img.corner {
+    width: 28%;
+    aspect-ratio: 1 / 1;
+    z-index: 10;
+    opacity: 0.98;
+    filter: saturate(0.98) contrast(0.98);
+  }
+  .gallery-layout img.tl { left: 2%; top: 6%; transform: rotate(-6deg); }
+  .gallery-layout img.tr { right: 2%; top: 6%; transform: rotate(6deg); }
+  .gallery-layout img.bl { left: 2%; bottom: 6%; transform: rotate(6deg); }
+  .gallery-layout img.br { right: 2%; bottom: 6%; transform: rotate(-6deg); }
+
+  /* Hover bring-forward effect */
+  .gallery-layout img.corner:hover { transform: scale(1.04) translateZ(0); z-index: 40; box-shadow: 0 24px 60px rgba(0,0,0,0.36); }
+
+  @media (max-width: 700px) {
+    .gallery-layout { height: 420px; }
+    .gallery-layout img.center { width: 72%; }
+    .gallery-layout img.corner { width: 36%; }
+    .gallery-layout img.tl { left: 4%; top: 4%; }
+    .gallery-layout img.tr { right: 4%; top: 4%; }
+    .gallery-layout img.bl { left: 4%; bottom: 4%; }
+    .gallery-layout img.br { right: 4%; bottom: 4%; }
+  }
 
   /* ─── COUNTDOWN ─── */
   #countdown { background: var(--cream); padding: 80px 20px; text-align: center; }
@@ -402,6 +453,8 @@
     .env-flap::after { top: -110px; left: -145px; right: -145px; height: 110px; }
   }
 </style>
+<!-- Preload center gallery image to improve LCP and ensure it's fetched early -->
+<link rel="preload" as="image" href="https://ik.imagekit.io/qt6bjog5y/tr:w-600,h-600,ar-1:1,q-75,f-auto/I3.JPG">
 </head>
 <body>
 
@@ -641,13 +694,22 @@
       <h2 class="section-title reveal">Photo Gallery</h2>
       <p class="section-sub reveal">A glimpse of our journey together</p>
       <div class="gallery-grid reveal">
-        <!-- Replace .cell-icon divs with <img> tags for real photos -->
-        <div class="gallery-cell"><div class="cell-icon">📷</div><span>Add Photo</span></div>
-        <div class="gallery-cell"><div class="cell-icon">📷</div><span>Add Photo</span></div>
-        <div class="gallery-cell"><div class="cell-icon">📷</div><span>Add Photo</span></div>
-        <div class="gallery-cell"><div class="cell-icon">📷</div><span>Add Photo</span></div>
-        <div class="gallery-cell"><div class="cell-icon">📷</div><span>Add Photo</span></div>
-        <div class="gallery-cell"><div class="cell-icon">📷</div><span>Add Photo</span></div>
+        <div class="gallery-layout" aria-label="Photo gallery">
+          <!-- Four corner images sit behind the center image -->
+          <img class="corner tl" src="https://ik.imagekit.io/qt6bjog5y/tr:w-300,h-300,ar-1:1,q-75,f-auto/I5.JPG" loading="lazy" alt="Gallery image 1">
+          <img class="corner tr" src="https://ik.imagekit.io/qt6bjog5y/tr:w-300,h-300,ar-1:1,q-75,f-auto/I2.JPG" loading="lazy" alt="Gallery image 2">
+          <img class="corner bl" src="https://ik.imagekit.io/qt6bjog5y/tr:w-300,h-300,ar-1:1,q-75,f-auto/I1.JPG" loading="lazy" alt="Gallery image 3">
+          <img class="corner br" src="https://ik.imagekit.io/qt6bjog5y/tr:w-300,h-300,ar-1:1,q-75,f-auto/I4.JPG" loading="lazy" alt="Gallery image 4">
+          <!-- Center, prominent image -->
+          <img
+          
+            class="center"
+            src="https://ik.imagekit.io/qt6bjog5y/tr:w-600,h-600,ar-1:1,q-75,f-auto/I3.JPG"
+            width="420" height="420"
+            style="width:46%;height:auto;max-width:420px;aspect-ratio:1/1;"
+            loading="eager"
+            alt="Gallery center image">
+        </div>
       </div>
     </div>
   </section>
@@ -704,6 +766,7 @@
   var resumeTimeoutId = null;
   var resumeDelay = 5000; // 5 seconds
   var lastAutoTargetY = null;
+  var lastAutoTargetIsBottom = false;
 
   function openEnvelope() {
     var wrap = document.getElementById('envWrap');
@@ -728,10 +791,12 @@
       var doc = document.documentElement;
       var scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight);
       targetY = scrollHeight - window.innerHeight;
+      lastAutoTargetIsBottom = true;
     } else {
       var targetEl = document.querySelector(selector);
       if (!targetEl) return;
       targetY = targetEl.getBoundingClientRect().top + window.scrollY;
+      lastAutoTargetIsBottom = false;
     }
     lastAutoTargetY = targetY;
     startAutoScroll(targetY);
@@ -743,26 +808,39 @@
     cancelAutoScroll();
     autoScrollActive = true;
     autoScrollLastTime = performance.now();
-    var speedPxPerSec = 220; // increased more for faster auto-scroll (readable)
+    // make touch devices a bit faster so perceived speed matches desktop
+    var speedPxPerSec = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ? 280 : 220;
+    // temporarily disable CSS smooth scrolling to avoid conflicts
+    var prevScrollBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = 'auto';
 
     function step(now) {
       if (!autoScrollActive) return;
       var elapsed = now - autoScrollLastTime;
       autoScrollLastTime = now;
       var delta = (speedPxPerSec * elapsed) / 1000;
+      // recompute target if bottom (viewport height can change on mobile)
+      var currentTargetY = targetY;
+      if (lastAutoTargetIsBottom) {
+        var doc = document.documentElement;
+        var scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight);
+        currentTargetY = scrollHeight - window.innerHeight;
+      }
       var currentY = window.scrollY;
-      var dir = targetY > currentY ? 1 : -1;
+      var dir = currentTargetY > currentY ? 1 : -1;
       var nextY = currentY + dir * delta;
 
       // clamp and finish
-      if ((dir === 1 && nextY >= targetY) || (dir === -1 && nextY <= targetY)) {
-        window.scrollTo({ top: targetY, behavior: 'auto' });
+      if ((dir === 1 && nextY >= currentTargetY) || (dir === -1 && nextY <= currentTargetY)) {
+        window.scrollTo(0, currentTargetY);
         cancelAutoScroll();
         // clear any pending resume since we've reached target
         if (resumeTimeoutId) { clearTimeout(resumeTimeoutId); resumeTimeoutId = null; }
+        // restore scroll-behavior
+        document.documentElement.style.scrollBehavior = prevScrollBehavior || '';
         return;
       } else {
-        window.scrollTo({ top: nextY, behavior: 'auto' });
+        window.scrollTo(0, nextY);
       }
 
       autoScrollAnimId = requestAnimationFrame(step);
@@ -774,6 +852,8 @@
   function cancelAutoScroll() {
     if (autoScrollAnimId) { cancelAnimationFrame(autoScrollAnimId); autoScrollAnimId = null; }
     autoScrollActive = false;
+    // restore scroll-behavior
+    try { document.documentElement.style.scrollBehavior = ''; } catch (e) {}
   }
 
   // If the user interacts (wheel, touch, mouse, key), cancel auto-scroll to allow manual control
